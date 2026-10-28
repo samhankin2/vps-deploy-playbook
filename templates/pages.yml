@@ -1,0 +1,49 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      # The frontend is the public/ folder. The API origin is injected here from
+      # the repository variable API_BASE_URL (Settings > Secrets and variables >
+      # Actions > Variables), so no file edit is needed to point it at the API.
+      # Leave the variable empty to serve the API from the same origin.
+      #
+      # Asset paths inside public/ MUST be relative (app.js, not /app.js) because
+      # a project site is served from https://<user>.github.io/<repo>/.
+      - name: Prepare static site
+        run: |
+          mkdir -p _site
+          cp -r public/. _site/
+          printf 'window.APP_API_BASE = "%s";\n' '${{ vars.API_BASE_URL }}' > _site/api-config.js
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

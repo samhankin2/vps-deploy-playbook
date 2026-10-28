@@ -1,0 +1,26 @@
+[Unit]
+Description=__APP_NAME__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__APP_NAME__
+Group=__APP_NAME__
+WorkingDirectory=/opt/__APP_NAME__
+Environment=PORT=3000
+Environment=HOST=127.0.0.1
+Environment=DATA_DIR=/var/lib/__APP_NAME__
+Environment=CONFIG_DIR=/opt/__APP_NAME__/data
+ExecStart=/usr/bin/node /opt/__APP_NAME__/server.js
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/__APP_NAME__
+
+[Install]
+WantedBy=multi-user.target

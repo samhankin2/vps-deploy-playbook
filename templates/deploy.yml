@@ -1,0 +1,55 @@
+name: Deploy API to the VPS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server.js"
+      - "package.json"
+      - "public/**"
+      - "data/**"
+      - "deploy/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: app-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to the VPS
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o IdentitiesOnly=yes \
+              "ubuntu@$DEPLOY_HOST" \
+              "sudo /usr/local/bin/APP_NAME-deploy"
+
+      - name: Verify the public API
+        run: |
+          set -euo pipefail
+          API="https://APP_NAME.${DEPLOY_HOST}.sslip.io"
+          for attempt in $(seq 1 10); do
+            if curl -fsS "$API/api/health"; then
+              echo
+              echo "public API healthy at $API"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "public API did not become healthy" >&2
+          exit 1
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
